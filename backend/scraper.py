@@ -8,7 +8,23 @@ load_dotenv()
 
 API_URL = os.getenv("NJIT_SECTIONS_API")
 
-SUBJECTS = ["AD", "MATH", "ECE"]
+SUBJECTS = [
+    "ACCT", "AD", "ARCH", "AS", "BDS", "BIOL", "BME", "BMET", "BNFO", "CE", 
+    "CET", "CHE", "CHEM", "CIM", "CMT", "COM", "CS", "DD", "DS", "ECE", 
+    "ECET", "ECON", "EM", "ENE", "ENGL", "ENGR", "ENTR", "EPS", "ESC", "ET", 
+    "EVSC", "FED", "FIN", "FRSC", "FYS", "GSND", "HIST", "HRM", "HSS", "ID", 
+    "IE", "IET", "INT", "INTD", "IS", "IT", "LIT", "MARC", "MATH", "MBGC", 
+    "ME", "MECH", "MET", "MGMT", "MIS", "MNE", "MNET", "MR", "MRKT", "MTEN", 
+    "MTH", "MTSE", "NEUR", "OM", "OPSE", "PE", "PHB", "PHEN", "PHIL", "PHPY", 
+    "PHY", "PHYS", "PSY", "PTC", "R010", "R014", "R050", "R070", "R074", "R080", 
+    "R082", "R083", "R085", "R086", "R087", "R089", "R120", "R160", "R198", 
+    "R200", "R202", "R216", "R220", "R223", "R300", "R350", "R352", "R355", 
+    "R373", "R380", "R390", "R420", "R460", "R510", "R512", "R553", "R560", 
+    "R595", "R620", "R623", "R628", "R630", "R640", "R645", "R711", "R730", 
+    "R750", "R755", "R790", "R799", "R812", "R830", "R834", "R908", "R910", 
+    "R920", "R940", "RBHS", "SDET", "SET", "STS", "THTR", "TRAN", "TUTR", 
+    "UMD", "USYS", "YWCC"
+]
 
 def fetch_all_sections():
     headers = {
