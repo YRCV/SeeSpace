@@ -16,13 +16,7 @@ SUBJECTS = [
     "IE", "IET", "INT", "INTD", "IS", "IT", "LIT", "MARC", "MATH", "MBGC", 
     "ME", "MECH", "MET", "MGMT", "MIS", "MNE", "MNET", "MR", "MRKT", "MTEN", 
     "MTH", "MTSE", "NEUR", "OM", "OPSE", "PE", "PHB", "PHEN", "PHIL", "PHPY", 
-    "PHY", "PHYS", "PSY", "PTC", "R010", "R014", "R050", "R070", "R074", "R080", 
-    "R082", "R083", "R085", "R086", "R087", "R089", "R120", "R160", "R198", 
-    "R200", "R202", "R216", "R220", "R223", "R300", "R350", "R352", "R355", 
-    "R373", "R380", "R390", "R420", "R460", "R510", "R512", "R553", "R560", 
-    "R595", "R620", "R623", "R628", "R630", "R640", "R645", "R711", "R730", 
-    "R750", "R755", "R790", "R799", "R812", "R830", "R834", "R908", "R910", 
-    "R920", "R940", "RBHS", "SDET", "SET", "STS", "THTR", "TRAN", "TUTR", 
+    "PHY", "PHYS", "PSY", "PTC", "RBHS", "SDET", "SET", "STS", "THTR", "TRAN", "TUTR", 
     "UMD", "USYS", "YWCC"
 ]
 
@@ -34,7 +28,7 @@ def fetch_all_sections():
     all_classes = []
 
     for subject in SUBJECTS:
-        print(f"Fetching {subject} courses...")
+        print(f"\033[94mFetching {subject} courses...\033[0m")
 
         query_params = {
         "term": "202610",
@@ -54,7 +48,7 @@ def fetch_all_sections():
                 html_content = ""
 
             if not html_content:
-                print(f"Failed to fetch {subject} courses.")
+                print(f"\033[91mFailed to fetch {subject} courses.\033[0m")
                 continue
 
             soup = BeautifulSoup(html_content, "html.parser")
@@ -87,10 +81,10 @@ def fetch_all_sections():
                     all_classes.append(course_data)
                     print(f"Found {course_code} at {location} on {days} at {class_time}")
         else:
-            print(f"Failed to fetch {subject} courses. Status code: {response.status_code}")
+            print(f"\033[91mFailed to fetch {subject} courses. Status code: {response.status_code}\033[0m")
         time.sleep(2)
 
-    print(f"\n Scraping completed. Total classes: {len(all_classes)}")
+    print(f"\n \033[92mScraping completed. Total classes: {len(all_classes)}\033[0m")
     return all_classes
 
 if __name__ == "__main__":
