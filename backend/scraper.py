@@ -1,35 +1,81 @@
 import os
+import time
 import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 load_dotenv()
 
-API_URL = os.getenv("NJIT_COURSES_API")
-query_params = {
-    "Mzc=dGVybQ==": "MQ==MjAyNjEw",      # term
-    "NDM=b2Zmc2V0": "Mzg=MA==",          # offset
-    "NTk=bWF4": "NjA=MTAw",              # max
-    "ODE=c3ViamVjdA==": "Mjc=QUQ=",      # subject
-    "encoded": "true"
-}
+API_URL = os.getenv("NJIT_SECTIONS_API")
 
-headers = {
+SUBJECTS = ["AD", "MATH", "ECE"]
+
+def fetch_all_sections():
+    headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-}
+    }
 
-def fetch_ad_courses():
-    print("Fetching AD courses...")
-    response = requests.get(API_URL, params=query_params, headers=headers)
-    print(response.json())
+    all_classes = []
 
-    if response.status_code == 200:
-        data=response.json()
-        print("Successfully fetched AD courses:")
-        
-        for course in data:
-            print(course.get('COURSE', 'Unknown Course'))
-    else:
-        print(f"Failed. Status code: {response.status_code}")
+    for subject in SUBJECTS:
+        print(f"Fetching {subject} courses...")
+
+        query_params = {
+        "term": "202610",
+        "offset": "0",
+        "max": "500",
+        "subject": subject,
+        }
+
+        response = requests.get(API_URL, params=query_params, headers=headers)
+
+        if response.status_code == 200:
+            data=response.json()
+            
+            if isinstance(data, list) and len(data) > 0:
+                html_content = data[0].get("SECTIONS_TABLE", "")
+            else:
+                html_content = ""
+
+            if not html_content:
+                print(f"Failed to fetch {subject} courses.")
+                continue
+
+            soup = BeautifulSoup(html_content, "html.parser")
+            tables = soup.find_all('table', class_="sections-table")
+
+            for table in tables:
+                course_header = table.find_previous('h4')
+                course_code = course_header.text.strip() if course_header else "Unknown"
+
+                for row in table.find_all('tr'):
+                    cols = row.find_all('td')
+                    
+                    if not cols:
+                        continue
+                    days = cols[2].get_text(separator=" ").strip()
+                    class_time = cols[3].get_text(separator=" ").strip()
+                    location = cols[4].get_text(separator=" ").strip()
+                    status = cols[5].get_text(strip=True)
+                    
+                    if not location or "TBA" in location or status == "Canceled":
+                        continue
+                    
+                    course_data = {
+                        "course": course_code,
+                        "days": days,
+                        "time": class_time,
+                        "location": location,
+                    }
+
+                    all_classes.append(course_data)
+                    print(f"Found {course_code} at {location} on {days} at {class_time}")
+        else:
+            print(f"Failed to fetch {subject} courses. Status code: {response.status_code}")
+        time.sleep(2)
+
+    print(f"\n Scraping completed. Total classes: {len(all_classes)}")
+    return all_classes
 
 if __name__ == "__main__":
-    fetch_ad_courses()
+    fetch_all_sections()
