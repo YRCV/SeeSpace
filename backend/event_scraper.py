@@ -28,9 +28,20 @@ def fetch_all_events():
             start_time = event.get("startDateTime")
             end_time = event.get("endDateTime")
 
-            print(f"{name} | {location} | {start_time} - {end_time}\n")
+            event_data = {
+                "name": name,
+                "location": location,
+                "start_time": start_time,
+                "end_time": end_time
+            }
+
+            all_events.append(event_data)
+            print(f"\033[94m-\033[0m {name} | {location} | {start_time} - {end_time}")
     else:
         print(f"\033[91mFailed to fetch events. Status code: {response.status_code}\033[0m")
+    
+    print(f"\033[92mFetched {len(all_events)} events.\033[0m")
+    return all_events
 
 if __name__ == "__main__":
     fetch_all_events()
