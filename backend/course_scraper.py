@@ -10,7 +10,7 @@ load_dotenv()
 API_URL = os.getenv("NJIT_SECTIONS_API")
 
 SUBJECTS = [
-    "ACCT", "AD", "ARCH", "AS", "BDS", "BIOL", "BME", "BMET", "BNFO", "CE", 
+    "ECE","ACCT", "AD", "ARCH", "AS", "BDS", "BIOL", "BME", "BMET", "BNFO", "CE", 
     "CET", "CHE", "CHEM", "CIM", "CMT", "COM", "CS", "DD", "DS", "ECE", 
     "ECET", "ECON", "EM", "ENE", "ENGL", "ENGR", "ENTR", "EPS", "ESC", "ET", 
     "EVSC", "FED", "FIN", "FRSC", "FYS", "GSND", "HIST", "HRM", "HSS", "ID", 
@@ -34,7 +34,7 @@ def fetch_all_sections():
         query_params = {
         "term": "202610",
         "offset": "0",
-        "max": "500",
+        "max": "999",
         "subject": subject,
         }
 
@@ -64,29 +64,52 @@ def fetch_all_sections():
                     
                     if not cols:
                         continue
-                    raw_days = cols[2].get_text(separator=" ").strip()
-                    raw_time = cols[3].get_text(separator=" ").strip()
-                    raw_location = cols[4].get_text(separator=" ").strip()
+
                     raw_status = cols[5].get_text(strip=True)
+                    if raw_status == "Cancelled":
+                        continue
+
+                    raw_days = cols[2].get_text(strip=True)
+                    raw_time = cols[3].get_text(strip=True)
+                    raw_location = cols[4].get_text(strip=True)
+
+                    if raw_location == "TBA" or raw_location == "":
+                        continue
+
+                    if raw_time == "TBA":
+                        continue
+
+                    days_list = list(cols[2].stripped_strings)
+                    times_list = list(cols[3].stripped_strings)
+                    locations_list = list(cols[4].stripped_strings)
 
                     if not raw_location or "TBA" in raw_location or raw_status == "Canceled":
                         continue
-
-                    start_time, end_time = normalize_course_time(raw_time)
-                    building, room = parse_location(raw_location)
+                    if not (len(days_list) == len(times_list) == len(locations_list)):
+                        print(f"\033[93mWarning: Mismatched schedule for {raw_course_name}\033[0m")
                     
-                    course_data = {
-                        "course_name": raw_course_name,
-                        "days": raw_days,
-                        "start_time": start_time,
-                        "end_time": end_time,
-                        "building": building,
-                        "room": room,
-                    }
+                    for raw_days, raw_time, raw_location in zip(days_list, times_list, locations_list):
+                        if not raw_location or "TBA" in raw_location:
+                            continue
 
-                    all_classes.append(course_data)
-                    print(course_data)
-                    #print(f"Found {course_code} at {location} on {days} at {class_time}")
+                        start_time, end_time = normalize_course_time(raw_time)
+                        if not start_time or not end_time:
+                            continue
+
+                        building, room = parse_location(raw_location)
+                    
+                        course_data = {
+                            "course_name": raw_course_name,
+                            "days": raw_days,
+                            "start_time": start_time,
+                            "end_time": end_time,
+                            "building": building,
+                            "room": room,
+                        }
+
+                        all_classes.append(course_data)
+                        print(course_data)
+                        #print(f"Found {course_code} at {location} on {days} at {class_time}")
         else:
             print(f"\033[91mFailed to fetch {subject} courses. Status code: {response.status_code}\033[0m")
         time.sleep(2)
