@@ -1,6 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from dateutil import rrule
+import re
 
 RRULE_MAP = {
     'M': rrule.MO,
@@ -34,5 +35,12 @@ def normalize_course_time(raw_time_string):
     except ValueError:
         return None, None
 
+def clean_room_string(room_str):
+    fluff = ["Classroom", "converged", "Lab", "room"]
+    for word in fluff:
+        room_str = re.sub(fr"\b{word}\b", "", room_str, flags=re.IGNORECASE)
+
+    room_str = re.sub(r'[,./\-"\']', ' ', room_str)
+    return " ".join(room_str.split()).strip()
 if __name__ == "__main__":
     print(normalize_course_time("01:00 AM - 12:30 PM"))
