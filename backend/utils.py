@@ -56,7 +56,10 @@ def normalize_course_time(raw_time_string):
         return None, None
 
 def clean_room_string(room_str):
-    fluff = ["Classroom", "converged", "Lab", "room"]
+    room_str = html.unescape(room_str)
+    room_str = room_str.replace('"', '').replace("'", "").replace('“', '').replace('”', '')
+
+    fluff = ["Classroom", "smartcart", "smart", "converged", "Lab", "room", "Robotics"]
     for word in fluff:
         room_str = re.sub(fr"\b{word}\b", "", room_str, flags=re.IGNORECASE)
 
@@ -84,6 +87,49 @@ def parse_location(raw_location):
         return parts[0], clean_room_string(parts[1])
          
     return "OTHER", clean_loc
+    
+def unroll_course_schedule(course_name, location, days, start_24h, end_24h):
+    # generate an array of event dictionaries with ISO time format for every class meeting of the semester
+    
+    # map days
+    target_days = [RRULE_MAP[day] for day in days.upper() if day in RRULE_MAP]
+
+    if not target_days or not start_24h or not end_24h:
+        return []
+
+    # parse time
+    start_h, start_m, start_s = map(int, start_24h.split(":"))
+    end_h, end_m, end_s = map(int, end_24h.split(":"))
+
+    # setup naive datetime
+    dt_start_naive = SEMESTER_START.replace(hour=start_h, minute=start_m, second=start_s, tzinfo=NJ_TIMEZONE)
+    dt_end_naive = SEMESTER_END.replace(hour=end_h, minute=end_m, second=end_s, tzinfo=NJ_TIMEZONE)
+
+    # generate all occurences in the range of the semester
+    occurences = list(rrule.rrule(
+        rrule.WEEKLY,
+        byweekday=target_days,
+        dtstart=dt_start_naive,
+        until=dt_end_naive,
+    ))
+
+    # extract the building and room only once
+    building, room = parse_location(location)
+
+    unrolled_classes = []
+    for dt_naive in occurences:
+        start_aware = dt_naive.replace(tzinfo=NJ_TIMEZONE)
+        end_aware = dt_naive.replace(hour=end_h, minute=end_m, second=end_s, tzinfo=NJ_TIMEZONE)
+        
+        unrolled_classes.append({
+            "course": course_name,
+            "building": building,
+            "room": room,
+            "start_time": start_aware.isoformat(),
+            "end_time": end_aware.isoformat(),
+        })
+
+    return unrolled_classes
     
 if __name__ == "__main__":
     print(normalize_course_time("01:00 AM - 12:30 PM"))
