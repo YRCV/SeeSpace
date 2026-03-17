@@ -21,6 +21,13 @@ SUBJECTS = [
     "TUTR", "UMD", "USYS", "YWCC"
 ]
 
+def extract_parallel_data(cell):
+    if not cell:
+        return []
+
+    raw_text = cell.get_text(separator="|")
+    return [item.strip() if item.strip() else "TBA" for item in raw_text.split("|")]
+    
 def fetch_all_sections():
     headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
@@ -79,12 +86,19 @@ def fetch_all_sections():
                     if raw_time == "TBA":
                         continue
 
-                    days_list = list(cols[2].stripped_strings)
-                    times_list = list(cols[3].stripped_strings)
-                    locations_list = list(cols[4].stripped_strings)
+                    #days_list = list(cols[2].stripped_strings)
+                    #times_list = list(cols[3].stripped_strings)
+                    #locations_list = list(cols[4].stripped_strings)
 
-                    if not raw_location or "TBA" in raw_location or raw_status == "Canceled":
-                        continue
+                    days_list = extract_parallel_data(cols[2])
+                    times_list = extract_parallel_data(cols[3])
+                    locations_list = extract_parallel_data(cols[4])
+
+                    max_len = max(len(days_list), len(times_list), len(locations_list))
+                    days_list += ["TBA"] * (max_len - len(days_list))
+                    times_list += ["TBA"] * (max_len - len(times_list))
+                    locations_list += ["TBA"] * (max_len - len(locations_list))
+
                     if not (len(days_list) == len(times_list) == len(locations_list)):
                         print(f"\033[93mWarning: Mismatched schedule for {raw_course_name}\033[0m")
                     
