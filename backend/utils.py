@@ -130,6 +130,6 @@ def unroll_course_schedule(course_name, location, days, start_24h, end_24h):
         })
 
     return unrolled_classes
-    
+
 if __name__ == "__main__":
-    print(normalize_course_time("01:00 AM - 12:30 PM"))
+    print(normalize_course_time("10:00 AM - 12:30 PM"))
