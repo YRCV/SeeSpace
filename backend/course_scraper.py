@@ -28,41 +28,101 @@ def extract_parallel_data(cell):
     raw_text = cell.get_text(separator="|")
     return [item.strip() if item.strip() else "TBA" for item in raw_text.split("|")]
     
-def fetch_all_sections():
+def fetch_subject_html(subject):
     headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
     }
 
-    all_classes = []
+    query_params = {
+    "term": "202610",
+    "offset": "0",
+    "max": "999",
+    "subject": subject,
+    }
 
-    for subject in SUBJECTS:
-        print(f"\033[94mFetching {subject} courses...\033[0m")
+    response = requests.get(API_URL, params=query_params, headers=headers)
 
-        query_params = {
-        "term": "202610",
-        "offset": "0",
-        "max": "999",
-        "subject": subject,
-        }
-
-        response = requests.get(API_URL, params=query_params, headers=headers)
-
-        if response.status_code == 200:
+    if response.status_code == 200:
             data=response.json()
             
             if isinstance(data, list) and len(data) > 0:
                 html_content = data[0].get("SECTIONS_TABLE", "")
             else:
                 html_content = ""
+    return html_content
 
-            if not html_content:
-                print(f"\033[91mFailed to fetch {subject} courses.\033[0m")
-                continue
+def extract_course_sections(raw_course_name, cols):
+    sections = []
 
-            soup = BeautifulSoup(html_content, "html.parser")
-            tables = soup.find_all('table', class_="sections-table")
+    raw_status = cols[5].get_text(strip=True)
+    if raw_status == "Cancelled":
+        return sections
 
-            for table in tables:
+    raw_days = cols[2].get_text(strip=True)
+    raw_time = cols[3].get_text(strip=True)
+    raw_location = cols[4].get_text(strip=True)
+
+    if raw_location == "TBA" or raw_location == "":
+        return sections
+
+    if raw_time == "TBA":
+        return sections
+
+    #days_list = list(cols[2].stripped_strings)
+    #times_list = list(cols[3].stripped_strings)
+    #locations_list = list(cols[4].stripped_strings)
+
+    days_list = extract_parallel_data(cols[2])
+    times_list = extract_parallel_data(cols[3])
+    locations_list = extract_parallel_data(cols[4])
+
+    max_len = max(len(days_list), len(times_list), len(locations_list))
+    days_list += ["TBA"] * (max_len - len(days_list))
+    times_list += ["TBA"] * (max_len - len(times_list))
+    locations_list += ["TBA"] * (max_len - len(locations_list))
+
+    if not (len(days_list) == len(times_list) == len(locations_list)):
+        print(f"\033[93mWarning: Mismatched schedule for {raw_course_name}\033[0m")
+    
+    for raw_days, raw_time, raw_location in zip(days_list, times_list, locations_list):
+        if not raw_location or "TBA" in raw_location:
+            return sections
+
+        start_time, end_time = normalize_course_time(raw_time)
+        if not start_time or not end_time:
+            return sections
+
+        building, room = parse_location(raw_location)
+    
+        course_data = {
+            "course_name": raw_course_name,
+            "days": raw_days,
+            "start_time": start_time,
+            "end_time": end_time,
+            "building": building,
+            "room": room,
+        }
+
+        sections.append(course_data)
+        print(course_data)
+        #print(f"Found {course_code} at {location} on {days} at {class_time}")
+    return sections
+
+def fetch_all_sections():
+    all_classes = []
+
+    for subject in SUBJECTS:
+        print(f"\033[94mFetching {subject} courses...\033[0m")
+
+        html_content = fetch_subject_html(subject)
+        if not html_content:
+            print(f"\033[91mFailed to fetch {subject} courses.\033[0m")
+            continue
+
+        soup = BeautifulSoup(html_content, "html.parser")
+        tables = soup.find_all('table', class_="sections-table")
+
+        for table in tables:
                 course_header = table.find_previous('h4')
                 raw_course_name = course_header.text.strip() if course_header else "Unknown"
 
@@ -71,61 +131,9 @@ def fetch_all_sections():
                     
                     if not cols:
                         continue
-
-                    raw_status = cols[5].get_text(strip=True)
-                    if raw_status == "Cancelled":
-                        continue
-
-                    raw_days = cols[2].get_text(strip=True)
-                    raw_time = cols[3].get_text(strip=True)
-                    raw_location = cols[4].get_text(strip=True)
-
-                    if raw_location == "TBA" or raw_location == "":
-                        continue
-
-                    if raw_time == "TBA":
-                        continue
-
-                    #days_list = list(cols[2].stripped_strings)
-                    #times_list = list(cols[3].stripped_strings)
-                    #locations_list = list(cols[4].stripped_strings)
-
-                    days_list = extract_parallel_data(cols[2])
-                    times_list = extract_parallel_data(cols[3])
-                    locations_list = extract_parallel_data(cols[4])
-
-                    max_len = max(len(days_list), len(times_list), len(locations_list))
-                    days_list += ["TBA"] * (max_len - len(days_list))
-                    times_list += ["TBA"] * (max_len - len(times_list))
-                    locations_list += ["TBA"] * (max_len - len(locations_list))
-
-                    if not (len(days_list) == len(times_list) == len(locations_list)):
-                        print(f"\033[93mWarning: Mismatched schedule for {raw_course_name}\033[0m")
                     
-                    for raw_days, raw_time, raw_location in zip(days_list, times_list, locations_list):
-                        if not raw_location or "TBA" in raw_location:
-                            continue
-
-                        start_time, end_time = normalize_course_time(raw_time)
-                        if not start_time or not end_time:
-                            continue
-
-                        building, room = parse_location(raw_location)
-                    
-                        course_data = {
-                            "course_name": raw_course_name,
-                            "days": raw_days,
-                            "start_time": start_time,
-                            "end_time": end_time,
-                            "building": building,
-                            "room": room,
-                        }
-
-                        all_classes.append(course_data)
-                        print(course_data)
-                        #print(f"Found {course_code} at {location} on {days} at {class_time}")
-        else:
-            print(f"\033[91mFailed to fetch {subject} courses. Status code: {response.status_code}\033[0m")
+                    sections = extract_course_sections(raw_course_name, cols)
+                    all_classes.extend(sections)
         time.sleep(2)
 
     print(f"\n \033[92mScraping completed. Total classes: {len(all_classes)}\033[0m")
