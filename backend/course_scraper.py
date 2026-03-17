@@ -3,6 +3,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from utils import unroll_course_schedule, normalize_course_time, parse_location
 
 load_dotenv()
 
@@ -16,8 +17,8 @@ SUBJECTS = [
     "IE", "IET", "INT", "INTD", "IS", "IT", "LIT", "MARC", "MATH", "MBGC", 
     "ME", "MECH", "MET", "MGMT", "MIS", "MNE", "MNET", "MR", "MRKT", "MTEN", 
     "MTH", "MTSE", "NEUR", "OM", "OPSE", "PE", "PHB", "PHEN", "PHIL", "PHPY", 
-    "PHY", "PHYS", "PSY", "PTC", "RBHS", "SDET", "SET", "STS", "THTR", "TRAN", "TUTR", 
-    "UMD", "USYS", "YWCC"
+    "PHY", "PHYS", "PSY", "PTC", "RBHS", "SDET", "SET", "STS", "THTR", "TRAN",
+    "TUTR", "UMD", "USYS", "YWCC"
 ]
 
 def fetch_all_sections():
@@ -56,30 +57,36 @@ def fetch_all_sections():
 
             for table in tables:
                 course_header = table.find_previous('h4')
-                course_code = course_header.text.strip() if course_header else "Unknown"
+                raw_course_name = course_header.text.strip() if course_header else "Unknown"
 
                 for row in table.find_all('tr'):
                     cols = row.find_all('td')
                     
                     if not cols:
                         continue
-                    days = cols[2].get_text(separator=" ").strip()
-                    class_time = cols[3].get_text(separator=" ").strip()
-                    location = cols[4].get_text(separator=" ").strip()
-                    status = cols[5].get_text(strip=True)
-                    
-                    if not location or "TBA" in location or status == "Canceled":
+                    raw_days = cols[2].get_text(separator=" ").strip()
+                    raw_time = cols[3].get_text(separator=" ").strip()
+                    raw_location = cols[4].get_text(separator=" ").strip()
+                    raw_status = cols[5].get_text(strip=True)
+
+                    if not raw_location or "TBA" in raw_location or raw_status == "Canceled":
                         continue
+
+                    start_time, end_time = normalize_course_time(raw_time)
+                    building, room = parse_location(raw_location)
                     
                     course_data = {
-                        "course": course_code,
-                        "days": days,
-                        "time": class_time,
-                        "location": location,
+                        "course_name": raw_course_name,
+                        "days": raw_days,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "building": building,
+                        "room": room,
                     }
 
                     all_classes.append(course_data)
-                    print(f"Found {course_code} at {location} on {days} at {class_time}")
+                    print(course_data)
+                    #print(f"Found {course_code} at {location} on {days} at {class_time}")
         else:
             print(f"\033[91mFailed to fetch {subject} courses. Status code: {response.status_code}\033[0m")
         time.sleep(2)
