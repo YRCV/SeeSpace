@@ -10,7 +10,7 @@ load_dotenv()
 API_URL = os.getenv("NJIT_SECTIONS_API")
 
 SUBJECTS = [
-    "ECE","ACCT", "AD", "ARCH", "AS", "BDS", "BIOL", "BME", "BMET", "BNFO", "CE", 
+    "ACCT", "AD", "ARCH", "AS", "BDS", "BIOL", "BME", "BMET", "BNFO", "CE", 
     "CET", "CHE", "CHEM", "CIM", "CMT", "COM", "CS", "DD", "DS", "ECE", 
     "ECET", "ECON", "EM", "ENE", "ENGL", "ENGR", "ENTR", "EPS", "ESC", "ET", 
     "EVSC", "FED", "FIN", "FRSC", "FYS", "GSND", "HIST", "HRM", "HSS", "ID", 
@@ -58,20 +58,6 @@ def extract_course_sections(raw_course_name, cols):
     if raw_status == "Cancelled":
         return sections
 
-    raw_days = cols[2].get_text(strip=True)
-    raw_time = cols[3].get_text(strip=True)
-    raw_location = cols[4].get_text(strip=True)
-
-    if raw_location == "TBA" or raw_location == "":
-        return sections
-
-    if raw_time == "TBA":
-        return sections
-
-    #days_list = list(cols[2].stripped_strings)
-    #times_list = list(cols[3].stripped_strings)
-    #locations_list = list(cols[4].stripped_strings)
-
     days_list = extract_parallel_data(cols[2])
     times_list = extract_parallel_data(cols[3])
     locations_list = extract_parallel_data(cols[4])
@@ -81,16 +67,13 @@ def extract_course_sections(raw_course_name, cols):
     times_list += ["TBA"] * (max_len - len(times_list))
     locations_list += ["TBA"] * (max_len - len(locations_list))
 
-    if not (len(days_list) == len(times_list) == len(locations_list)):
-        print(f"\033[93mWarning: Mismatched schedule for {raw_course_name}\033[0m")
-    
     for raw_days, raw_time, raw_location in zip(days_list, times_list, locations_list):
-        if not raw_location or "TBA" in raw_location:
-            return sections
+        if raw_location == "TBA":
+            continue
 
         start_time, end_time = normalize_course_time(raw_time)
         if not start_time or not end_time:
-            return sections
+            continue
 
         building, room = parse_location(raw_location)
     
