@@ -1,0 +1,9 @@
+{
+    "mcpServers": {
+        "rn-debugger": {
+            "type": "stdio",
+            "command": "npx",
+            "args": ["react-native-ai-devtools"]
+        }
+    }
+}

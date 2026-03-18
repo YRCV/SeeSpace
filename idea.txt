@@ -1,0 +1,36 @@
+App Name: SeeSpace
+Goal: Collect classroom data to show estimated free time periods for students on campus.
+
+Logo Concept:
+A pair of eyes looking towards an open door.
+
+Colors:
+- Primary: #d64045 (Red)
+- Secondary: #2a2b2a (Dark Charcoal)
+- Tertiary: #dcdcdd (Light Gray)
+
+Features:
+1. Search Bar:
+   - Fuzzy match for specific classrooms.
+2. Building Exploration Screen (Buildings Tab):
+   - List of buildings.
+   - Each building shows name and "number of rooms empty".
+   - Clicking a building reveals rooms inside:
+     - Empty rooms first (alphabetical).
+     - Occupied rooms second (alphabetical).
+3. Nearby Rooms Screen (Home Tab):
+   - Shows free rooms sorted by proximity to the user.
+   - Favorites section for quick access.
+4. Favorites Screen (Favorites Tab):
+   - Saved/starred classrooms for quick status checking.
+5. Classroom Detail Screen:
+   - Full calendar view showing free/occupied blocks.
+   - Up to 2 weeks of data.
+   - Simple and clean design.
+
+Navigation Order:
+1. Buildings
+2. Home
+3. Favorites
+
+Framework: React Native (Frontend)
