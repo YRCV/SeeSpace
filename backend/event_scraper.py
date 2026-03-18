@@ -1,44 +1,56 @@
 import os
-import time
 import requests
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from utils import parse_location
 
 load_dotenv()
 
 API_URL = os.getenv("NJIT_EVENTS_URL")
 
-def fetch_all_events():
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-    }
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+}
 
+def fetch_events_data():
+    response = requests.get(API_URL, headers=HEADERS)
+
+    if response.status_code == 200:
+        print("\033[92mConnection successful\033[0m")
+        return response.json()
+    else:
+        print(f"\033[91mFailed to fetch events. Status code: {response.status_code}\033[0m")
+        return []
+
+def parse_event(event):
+    name = event.get("title", "Unknown")
+    location = event.get("location", "TBA")
+    start_time = event.get("startDateTime")
+    end_time = event.get("endDateTime")
+    
+    building, rooms = parse_location(location)
+    
+    return [
+        {
+            "name": name,
+            "building": building,
+            "room": room,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+        for room in rooms
+    ]
+
+def fetch_all_events():
     all_events = []
 
     print(f"\033[94mFetching all events...\033[0m")
 
-    response = requests.get(API_URL, headers=headers)
-
-    if response.status_code == 200:
-        data=response.json()
-        print("\033[92mConnection successful\033[0m")
-        for event in data:
-            name = event.get("title")
-            location = event.get("location")
-            start_time = event.get("startDateTime")
-            end_time = event.get("endDateTime")
-
-            event_data = {
-                "name": name,
-                "location": location,
-                "start_time": start_time,
-                "end_time": end_time
-            }
-
-            all_events.append(event_data)
-            print(f"\033[94m-\033[0m {name} | {location} | {start_time} - {end_time}")
-    else:
-        print(f"\033[91mFailed to fetch events. Status code: {response.status_code}\033[0m")
+    data = fetch_events_data()
+    for event in data:
+        records = parse_event(event)
+        all_events.extend(records)
+        for record in records:
+            print(record)
     
     print(f"\033[92mFetched {len(all_events)} events.\033[0m")
     return all_events

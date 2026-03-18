@@ -75,7 +75,8 @@ def extract_course_sections(raw_course_name, cols):
         if not start_time or not end_time:
             continue
 
-        building, room = parse_location(raw_location)
+        building, rooms = parse_location(raw_location)
+        room = rooms[0] if rooms else "TBA"  # course sections are always a single room
     
         course_data = {
             "course_name": raw_course_name,

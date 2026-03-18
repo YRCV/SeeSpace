@@ -38,10 +38,10 @@ SEMESTER_END = datetime(2026, 5, 5)
 NJ_TIMEZONE = ZoneInfo("America/New_York")
 
 def normalize_course_time(raw_time_string):
-    if not raw_time_string or "TBA" in raw_time_string:
+    if not raw_time_string or raw_time_string == "TBA":
         return None, None
     
-    parts = raw_time_string.strip().split("-")
+    parts = raw_time_string.strip().split(" - ")
     if len(parts) != 2:
         return None, None
 
@@ -66,27 +66,33 @@ def clean_room_string(room_str):
     room_str = re.sub(r'[,./\-"\']', ' ', room_str)
     return " ".join(room_str.split()).strip()
 
+def split_rooms(cleaned_room):
+    tokens = cleaned_room.split()
+    if len(tokens) > 1 and all(t.isdigit() for t in tokens):
+        return tokens
+    return [cleaned_room]
+
 def parse_location(raw_location):
     if not raw_location:
-        return "TBA", "TBA"
+        return "TBA", ["TBA"]
     
     clean_loc = " ".join(raw_location.split())
 
     for full_name, code in BUILDING_MAP.items():
         if full_name.lower() in clean_loc.lower():
             room_raw = re.sub(rf"{full_name}", "", clean_loc, flags=re.IGNORECASE)
-            return code, clean_room_string(room_raw)
+            return code, split_rooms(clean_room_string(room_raw))
     
     for code in BUILDING_CODES:
         if re.search(rf"\b{code}\b", clean_loc, flags=re.IGNORECASE):
             room_raw = re.sub(rf"\b{code}\b", "", clean_loc, flags=re.IGNORECASE)
-            return code, clean_room_string(room_raw)
+            return code, split_rooms(clean_room_string(room_raw))
 
     parts = clean_loc.split(" ", 1)
     if len(parts) == 2:
-        return parts[0], clean_room_string(parts[1])
+        return parts[0], split_rooms(clean_room_string(parts[1]))
          
-    return "OTHER", clean_loc
+    return "OTHER", [clean_loc]
     
 def unroll_course_schedule(course_name, location, days, start_24h, end_24h):
     # generate an array of event dictionaries with ISO time format for every class meeting of the semester
@@ -118,8 +124,8 @@ def unroll_course_schedule(course_name, location, days, start_24h, end_24h):
 
     unrolled_classes = []
     for dt_naive in occurences:
-        start_aware = dt_naive.replace(tzinfo=NJ_TIMEZONE)
-        end_aware = dt_naive.replace(hour=end_h, minute=end_m, second=end_s, tzinfo=NJ_TIMEZONE)
+        start_aware = dt_naive.astimezone(NJ_TIMEZONE)
+        end_aware = dt_naive.astimezone(NJ_TIMEZONE).replace(hour=end_h, minute=end_m, second=end_s)
         
         unrolled_classes.append({
             "course": course_name,
