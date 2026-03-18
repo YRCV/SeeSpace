@@ -15,7 +15,6 @@ def fetch_events_data():
     response = requests.get(API_URL, headers=HEADERS)
 
     if response.status_code == 200:
-        print("\033[92mConnection successful\033[0m")
         return response.json()
     else:
         print(f"\033[91mFailed to fetch events. Status code: {response.status_code}\033[0m")
@@ -52,7 +51,7 @@ def fetch_all_events():
         for record in records:
             print(record)
     
-    print(f"\033[92mFetched {len(all_events)} events.\033[0m")
+    print(f"\033[92mFetched {len(data)} events.\033[0m")
     return all_events
 
 if __name__ == "__main__":

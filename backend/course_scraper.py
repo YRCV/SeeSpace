@@ -118,9 +118,9 @@ def fetch_all_sections():
                     
                     sections = extract_course_sections(raw_course_name, cols)
                     all_classes.extend(sections)
-        time.sleep(2)
+        time.sleep(1)
 
-    print(f"\n \033[92mScraping completed. Total classes: {len(all_classes)}\033[0m")
+    print(f"\n\033[92mScraping completed. Total classes: {len(all_classes)}\033[0m")
     return all_classes
 
 if __name__ == "__main__":
