@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 from dateutil import rrule
 import re
 import html
+import time
 
 RRULE_MAP = {
     'M': rrule.MO,
@@ -55,6 +56,17 @@ def normalize_course_time(raw_time_string):
     except ValueError:
         return None, None
 
+def normalize_event_time(raw_time_string):
+    if not raw_time_string:
+        return None
+    
+    dt = datetime.fromisoformat(raw_time_string)
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=NJ_TIMEZONE)  # stamp as ET, not convert
+
+    return dt.isoformat()
+
 def clean_room_string(room_str):
     room_str = html.unescape(room_str)
     room_str = room_str.replace('"', '').replace("'", "").replace('“', '').replace('”', '')
@@ -94,7 +106,7 @@ def parse_location(raw_location):
          
     return "OTHER", [clean_loc]
     
-def unroll_course_schedule(course_name, location, days, start_24h, end_24h):
+def unroll_course_schedule(course_name, building, room, days, start_24h, end_24h):
     # generate an array of event dictionaries with ISO time format for every class meeting of the semester
     
     # map days
@@ -119,23 +131,28 @@ def unroll_course_schedule(course_name, location, days, start_24h, end_24h):
         until=dt_end_naive,
     ))
 
-    # extract the building and room only once
-    building, room = parse_location(location)
-
     unrolled_classes = []
     for dt_naive in occurences:
         start_aware = dt_naive.astimezone(NJ_TIMEZONE)
         end_aware = dt_naive.astimezone(NJ_TIMEZONE).replace(hour=end_h, minute=end_m, second=end_s)
         
         unrolled_classes.append({
-            "course": course_name,
+            "title": course_name,
             "building": building,
             "room": room,
             "start_time": start_aware.isoformat(),
             "end_time": end_aware.isoformat(),
+            "type": "course"
         })
 
     return unrolled_classes
 
 if __name__ == "__main__":
-    print(normalize_course_time("10:00 AM - 12:30 PM"))
+    #print(normalize_course_time("10:00 AM - 12:30 PM"))
+    example_courses = [
+        {'course_name': 'ECE 271 - ELECTRONIC CIRCUITS I', 'days': 'TR', 'start_time': '13:00:00', 'end_time': '14:20:00', 'building': 'KUPF', 'room': '118'},
+        {'course_name': 'ECE 271 - ELECTRONIC CIRCUITS I', 'days': 'F', 'start_time': '08:30:00', 'end_time': '09:30:00', 'building': 'GITC', 'room': '1100'}
+    ]
+    for course in example_courses:
+        print(unroll_course_schedule(course["course_name"], course["building"], course["room"], course["days"], course["start_time"], course["end_time"]))
+    
