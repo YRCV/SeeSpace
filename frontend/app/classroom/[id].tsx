@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView } from 'react-native';
+import { StyleSheet, View, ScrollView, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ClassroomDetailHero } from '@/components/ClassroomDetailHero';
@@ -7,6 +7,7 @@ import { ClassroomCalendar } from '@/components/ClassroomCalendar';
 import { ThemedText } from '@/components/themed-text';
 import { ALL_ROOMS } from '@/constants/data';
 import { useClassroomOpenTransition } from '@/context/ClassroomOpenTransitionContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ClassroomDetailScreen() {
   const { id, transitionId } = useLocalSearchParams<{
@@ -47,6 +48,7 @@ export default function ClassroomDetailScreen() {
 
   return (
     <View style={styles.screen}>
+      <StatusBar barStyle="dark-content" backgroundColor="#2a2b2a" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -66,7 +68,10 @@ export default function ClassroomDetailScreen() {
           }}
         />
 
-        <ClassroomCalendar />
+        <ClassroomCalendar 
+          building={room.building} 
+          roomName={room.name} 
+        />
       </ScrollView>
     </View>
   );
@@ -89,6 +94,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#0000',
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
 });

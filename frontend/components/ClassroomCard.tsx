@@ -23,7 +23,7 @@ export function ClassroomCard({
 }: ClassroomCardProps) {
     const cardRef = React.useRef<View>(null);
     const sourceKey = React.useId();
-    const { startOpenTransition, isSourceHidden, registerMeasurement, containerRef } =
+    const { startOpenTransition, isSourceHidden, registerMeasurement } =
         useClassroomOpenTransition();
     const hidden = isSourceHidden(sourceKey);
 
@@ -31,36 +31,34 @@ export function ClassroomCard({
         return registerMeasurement(id, () => {
             return new Promise((resolve) => {
                 const node = cardRef.current;
-                const container = containerRef.current;
 
-                if (!node || !container) {
+                if (!node) {
                     resolve({ x: 0, y: 0, width: 0, height: 0 });
                     return;
                 }
 
-                // Use measureLayout to get position relative to container
-                // This matches the overlay's positioning since overlay also uses container-relative coords via absoluteFillObject
-                node.measureLayout(container, (x, y, width, height) => {
+                // Use measureInWindow to get viewport-relative position.
+                // This correctly accounts for scroll offset, unlike measureLayout
+                // which returns position relative to the layout container.
+                node.measureInWindow((x, y, width, height) => {
                     resolve({ x, y, width, height });
-                }, () => {
-                    resolve({ x: 0, y: 0, width: 0, height: 0 });
                 });
             });
         });
-    }, [id, registerMeasurement, containerRef]);
+    }, [id, registerMeasurement]);
 
     const handlePress = React.useCallback(() => {
         const node = cardRef.current;
-        const container = containerRef.current;
 
-        if (!node || !container) {
+        if (!node) {
             onPress("");
             return;
         }
 
-        // Use measureLayout to get position relative to container
-        // This ensures both open and close measurements use the same coordinate system
-        node.measureLayout(container, (x, y, width, height) => {
+        // Use measureInWindow to get viewport-relative position.
+        // This correctly accounts for scroll offset, so the animation overlay
+        // starts exactly where the card visually appears on screen.
+        node.measureInWindow((x, y, width, height) => {
             if (!width || !height) {
                 onPress("");
                 return;
@@ -78,12 +76,9 @@ export function ClassroomCard({
                 sourceKey,
                 navigate: onPress,
             });
-        }, () => {
-            onPress("");
         });
     }, [
         building,
-        containerRef,
         distance,
         id,
         name,

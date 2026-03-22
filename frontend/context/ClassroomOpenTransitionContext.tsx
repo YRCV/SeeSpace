@@ -46,10 +46,12 @@ interface TransitionState {
 interface ClassroomOpenTransitionContextValue {
     startOpenTransition: (payload: TransitionPayload) => void;
     startCloseTransition: (roomId: string, navigateBack: () => void) => void;
-    registerMeasurement: (roomId: string, measure: () => Promise<TransitionBounds>) => () => void;
+    registerMeasurement: (
+        roomId: string,
+        measure: () => Promise<TransitionBounds>,
+    ) => () => void;
     completeOpenTransition: () => void;
     isSourceHidden: (sourceKey: string) => boolean;
-    containerRef: React.RefObject<View | null>;
 }
 
 const ClassroomOpenTransitionContext =
@@ -65,9 +67,24 @@ function ClassroomOpenTransitionOverlay({
     onSettled: () => void;
 }) {
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-    const [snapshot, setSnapshot] = React.useState<TransitionState | null>(
-        null,
-    );
+
+    // Use a ref instead of useState for the snapshot.
+    // Previously, snapshot was state updated inside useEffect, which caused:
+    //   render 1: transition arrives → snapshot still null → overlay returns null (invisible!)
+    //   useEffect: setSnapshot(transition) → triggers render 2
+    //   render 2: snapshot set → heavy components mount → another useEffect starts animation
+    // That's 2 full render cycles + 2 post-paint effect delays before animation starts.
+    //
+    // With a ref, we update synchronously during render so the overlay
+    // mounts its content on the very first pass.
+    const snapshotRef = React.useRef<TransitionState | null>(null);
+    if (transition) {
+        snapshotRef.current = transition;
+    } else {
+        snapshotRef.current = null;
+    }
+    const snapshot = snapshotRef.current;
+
     const overlayOpacity = useSharedValue(0);
     const surfaceX = useSharedValue(0);
     const surfaceY = useSharedValue(0);
@@ -80,66 +97,10 @@ function ClassroomOpenTransitionOverlay({
     const detailOpacity = useSharedValue(0);
     const detailTranslateY = useSharedValue(18);
 
-    React.useEffect(() => {
-        if (!transition) {
-            setSnapshot(null);
-            return;
-        }
-
-        setSnapshot(transition);
-
-        if (transition.phase === "closing") {
-            overlayOpacity.value = 1;
-            previewOpacity.value = 0;
-            surfaceX.value = 0;
-            surfaceY.value = 0;
-            surfaceWidth.value = screenWidth;
-            surfaceHeight.value = screenHeight;
-            surfaceRadius.value = 0;
-            surfaceShadow.value = 0;
-            surfaceElevation.value = 0;
-            detailOpacity.value = 1;
-            detailTranslateY.value = 0;
-
-            const closeConfig = {
-                duration: 250,
-                easing: Easing.out(Easing.cubic),
-            };
-
-            surfaceX.value = withTiming(transition.bounds.x, closeConfig);
-            surfaceY.value = withTiming(transition.bounds.y, closeConfig);
-            surfaceWidth.value = withTiming(transition.bounds.width, closeConfig);
-            surfaceRadius.value = withTiming(12, closeConfig);
-            surfaceShadow.value = withTiming(0.08, closeConfig);
-            surfaceElevation.value = withTiming(3, closeConfig);
-
-            previewOpacity.value = withDelay(
-                80,
-                withTiming(1, {
-                    duration: 170,
-                    easing: Easing.out(Easing.quad),
-                })
-            );
-
-            detailOpacity.value = withTiming(0, {
-                duration: 150,
-                easing: Easing.out(Easing.quad),
-            });
-            detailTranslateY.value = withTiming(10, closeConfig);
-
-            surfaceHeight.value = withTiming(
-                transition.bounds.height,
-                closeConfig,
-                (finished) => {
-                    if (finished) {
-                        runOnJS(onSettled)();
-                    }
-                },
-            );
-            return;
-        }
-
-        if (transition.phase !== "expanding") {
+    // useLayoutEffect instead of useEffect: starts the animation BEFORE the
+    // browser paints, shaving off one frame of dead time (~16ms+).
+    React.useLayoutEffect(() => {
+        if (!transition || transition.phase !== "expanding") {
             return;
         }
 
@@ -157,7 +118,7 @@ function ClassroomOpenTransitionOverlay({
 
         const expandConfig = {
             duration: 200,
-            easing: Easing.linear,
+            easing: Easing.bezier(0.2, 0.07, 0, 0.99),
         };
 
         surfaceX.value = withTiming(0, expandConfig);
@@ -214,7 +175,7 @@ function ClassroomOpenTransitionOverlay({
         transition,
     ]);
 
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
         if (!transition || transition.phase !== "settling") {
             return;
         }
@@ -307,7 +268,10 @@ function ClassroomOpenTransitionOverlay({
                                 status={snapshot.room.status}
                                 backButtonMode="static"
                             />
-                            <ClassroomCalendar />
+                            <ClassroomCalendar
+                                building={snapshot.room.building}
+                                roomName={snapshot.room.name}
+                            />
                         </Animated.View>
                     </Animated.View>
                 </Animated.View>
@@ -330,7 +294,11 @@ export function ClassroomOpenTransitionProvider({
         transitionId: string;
     } | null>(null);
     const lastOpenedStateRef = React.useRef<{
-        [roomId: string]: { room: TransitionRoom; bounds: TransitionBounds; sourceKey: string };
+        [roomId: string]: {
+            room: TransitionRoom;
+            bounds: TransitionBounds;
+            sourceKey: string;
+        };
     }>({});
     const measurementRegistryRef = React.useRef<{
         [roomId: string]: () => Promise<TransitionBounds>;
@@ -458,43 +426,15 @@ export function ClassroomOpenTransitionProvider({
         async (roomId: string, navigateBack: () => void) => {
             clearFallbackTimer();
 
-            const lastState = lastOpenedStateRef.current[roomId];
-            const measureFn = measurementRegistryRef.current[roomId];
+            // Clear any existing transition immediately (no closing animation)
+            setTransition(null);
+            pendingNavigationRef.current = null;
 
-            if (!lastState) {
-                navigateBack();
-                return;
-            }
-
-            // Get the card's current position (accounting for scroll changes)
-            // Fall back to last known position if measurement fails
-            let currentBounds = lastState.bounds;
-            if (measureFn) {
-                try {
-                    const freshBounds = await measureFn();
-                    if (freshBounds && freshBounds.width > 0) {
-                        currentBounds = freshBounds;
-                    }
-                } catch (e) {
-                    console.warn("[Transition] Failed to re-measure card:", e);
-                }
-            }
-
-            const transitionId = createTransitionId();
-            setTransition({
-                room: lastState.room,
-                bounds: currentBounds,
-                sourceKey: lastState.sourceKey,
-                transitionId,
-                phase: "closing",
-            });
-
-            // Navigate back immediately so the overlay animates on top of the list view
+            // Navigate back immediately without animation
             navigateBack();
         },
-        [clearFallbackTimer, createTransitionId],
+        [clearFallbackTimer],
     );
-
 
     const handleSettled = React.useCallback(() => {
         clearFallbackTimer();
@@ -514,14 +454,23 @@ export function ClassroomOpenTransitionProvider({
             registerMeasurement,
             completeOpenTransition,
             isSourceHidden,
-            containerRef,
         }),
-        [completeOpenTransition, isSourceHidden, registerMeasurement, startCloseTransition, startOpenTransition],
+        [
+            completeOpenTransition,
+            isSourceHidden,
+            registerMeasurement,
+            startCloseTransition,
+            startOpenTransition,
+        ],
     );
 
     return (
         <ClassroomOpenTransitionContext.Provider value={value}>
-            <View ref={containerRef} style={styles.providerContainer} collapsable={false}>
+            <View
+                ref={containerRef}
+                style={styles.providerContainer}
+                collapsable={false}
+            >
                 {children}
             </View>
             <ClassroomOpenTransitionOverlay

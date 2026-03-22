@@ -10,6 +10,7 @@ import {
 import { ThemedText } from "@/components/themed-text";
 import { Fonts } from "@/constants/theme";
 import { FontAwesome6 } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface ClassroomDetailHeroProps {
     name: string;
@@ -29,7 +30,7 @@ export function ClassroomDetailHero({
     style,
 }: ClassroomDetailHeroProps) {
     return (
-        <View style={style}>
+        <SafeAreaView style={style}>
             {backButtonMode !== "hidden" && (
                 <View style={styles.backButtonRow}>
                     {backButtonMode === "interactive" ? (
@@ -57,12 +58,12 @@ export function ClassroomDetailHero({
             )}
 
             <View style={styles.roomHeader}>
-                <ThemedText type="title" style={styles.roomName}>
-                    {name}
-                </ThemedText>
-                <ThemedText style={styles.buildingName}>
-                    {building}
-                </ThemedText>
+                <View style={styles.titleColumn}>
+                    <ThemedText type="title" style={styles.roomName}>
+                        {name}
+                    </ThemedText>
+                    <ThemedText style={styles.buildingName}>{building}</ThemedText>
+                </View>
                 <View style={styles.statusRow}>
                     <View
                         style={[
@@ -74,19 +75,18 @@ export function ClassroomDetailHero({
                         ]}
                     />
                     <ThemedText style={styles.statusText}>
-                        Currently {status}
+                        {status === 'free' ? "Free" : "Busy"}
                     </ThemedText>
                 </View>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     backButtonRow: {
-        padding: 24,
-        paddingTop: 60,
-        paddingBottom: 0,
+        position: "static",
+        paddingHorizontal: 24,
     },
     backButton: {
         width: 40,
@@ -96,8 +96,13 @@ const styles = StyleSheet.create({
     },
     roomHeader: {
         paddingHorizontal: 24,
-        paddingBottom: 20,
-         color: "#2a2b2a",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    titleColumn: {
+        flex: 1,
+        marginRight: 16,
     },
     roomName: {
         fontSize: 32,
@@ -108,12 +113,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         opacity: 0.6,
         marginTop: 4,
-         color: "#2a2b2a",
+        color: "#2a2b2a",
     },
     statusRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginTop: 12,
         gap: 8,
     },
     statusIndicator: {
@@ -124,6 +128,6 @@ const styles = StyleSheet.create({
     statusText: {
         fontSize: 14,
         fontWeight: "500",
-         color: "#2a2b2a",
+        color: "#2a2b2a",
     },
 });
