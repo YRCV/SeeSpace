@@ -7,6 +7,7 @@ import { ClassroomCalendar } from '@/components/ClassroomCalendar';
 import { ThemedText } from '@/components/themed-text';
 import { ALL_ROOMS } from '@/constants/data';
 import { useClassroomOpenTransition } from '@/context/ClassroomOpenTransitionContext';
+import { useFavorites } from '@/context/FavoritesContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ClassroomDetailScreen() {
@@ -16,27 +17,21 @@ export default function ClassroomDetailScreen() {
   }>();
   const router = useRouter();
   const { completeOpenTransition, startCloseTransition } = useClassroomOpenTransition();
+  const { isFavorite, toggleFavorite } = useFavorites();
   
   const roomId = Array.isArray(id) ? id[0] : id;
   const room = ALL_ROOMS.find(r => r.id === roomId);
   const hasReportedReadyRef = React.useRef(false);
 
-  React.useEffect(() => {
-    if (!room || hasReportedReadyRef.current) {
-      return;
-    }
-
+  const handleLayout = React.useCallback(() => {
+    if (hasReportedReadyRef.current) return;
     hasReportedReadyRef.current = true;
-    
-    // On dev servers (Expo Go), we need to ensure the complex UI (Calendar/Hero) 
-    // has actually pushed bits to the screen before removing the overlay.
-    // 60ms is roughly 3-4 frames at 60Hz, enough for a layout and paint flush.
-    const timer = setTimeout(() => {
-      completeOpenTransition();
-    }, 10);
 
-    return () => clearTimeout(timer);
-  }, [room, completeOpenTransition]);
+    // Report ready instantly so that the overlay stops blocking touches
+    // (pointerEvents="none" is set). The visual overlay will persist for 50ms
+    // strictly via Reanimated (withDelay) to prevent the white-flash.
+    completeOpenTransition();
+  }, [completeOpenTransition]);
 
   if (!room) {
     return (
@@ -47,7 +42,7 @@ export default function ClassroomDetailScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.screen} onLayout={handleLayout}>
       <StatusBar barStyle="dark-content" backgroundColor="#2a2b2a" />
       <ScrollView
         style={styles.scroll}
@@ -58,6 +53,8 @@ export default function ClassroomDetailScreen() {
           name={room.name}
           building={room.building}
           status={room.status}
+          isFavorite={isFavorite(room.id)}
+          onToggleFavorite={() => toggleFavorite(room.id)}
           backButtonMode="interactive"
           onBackPress={() => {
             if (room) {

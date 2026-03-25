@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ClassroomOpenTransitionProvider } from '@/context/ClassroomOpenTransitionContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,18 +22,20 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <ClassroomOpenTransitionProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="classroom/[id]"
-                options={{
-                  headerShown: false,
-                  animation: 'none',
-                  contentStyle: { backgroundColor: '#ffffff' },
-                }}
-              />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
+            <FavoritesProvider>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="classroom/[id]"
+                  options={{
+                    headerShown: false,
+                    animation: 'none',
+                    contentStyle: { backgroundColor: '#ffffff' },
+                  }}
+                />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+            </FavoritesProvider>
           </ClassroomOpenTransitionProvider>
           <StatusBar style="auto" />
         </ThemeProvider>

@@ -68,15 +68,7 @@ function ClassroomOpenTransitionOverlay({
 }) {
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
-    // Use a ref instead of useState for the snapshot.
-    // Previously, snapshot was state updated inside useEffect, which caused:
-    //   render 1: transition arrives → snapshot still null → overlay returns null (invisible!)
-    //   useEffect: setSnapshot(transition) → triggers render 2
-    //   render 2: snapshot set → heavy components mount → another useEffect starts animation
-    // That's 2 full render cycles + 2 post-paint effect delays before animation starts.
-    //
-    // With a ref, we update synchronously during render so the overlay
-    // mounts its content on the very first pass.
+    // Sync snapshot via ref — no extra render cycle like useState would cause.
     const snapshotRef = React.useRef<TransitionState | null>(null);
     if (transition) {
         snapshotRef.current = transition;
@@ -84,6 +76,13 @@ function ClassroomOpenTransitionOverlay({
         snapshotRef.current = null;
     }
     const snapshot = snapshotRef.current;
+
+    // Defer mounting of heavy detail components (ClassroomDetailHero + ClassroomCalendar).
+    // These are invisible at animation start (detailOpacity = 0, fades in after 90ms),
+    // so we mount them AFTER the first frame so they don't block the animation from starting.
+    // Reanimated animations run on the UI thread, so even when these heavy components
+    // mount and block the JS thread briefly, the expand animation keeps running smoothly.
+    const [detailReady, setDetailReady] = React.useState(false);
 
     const overlayOpacity = useSharedValue(0);
     const surfaceX = useSharedValue(0);
@@ -97,8 +96,8 @@ function ClassroomOpenTransitionOverlay({
     const detailOpacity = useSharedValue(0);
     const detailTranslateY = useSharedValue(18);
 
-    // useLayoutEffect instead of useEffect: starts the animation BEFORE the
-    // browser paints, shaving off one frame of dead time (~16ms+).
+    // Start expand animation. Uses useLayoutEffect so animations begin
+    // before the browser paints the first frame.
     React.useLayoutEffect(() => {
         if (!transition || transition.phase !== "expanding") {
             return;
@@ -157,6 +156,16 @@ function ClassroomOpenTransitionOverlay({
                 }
             },
         );
+
+        // Mount heavy detail components on the next frame.
+        // The animation is already running on the UI thread by now,
+        // so the JS thread can spend time rendering Hero + Calendar
+        // without the user seeing any delay.
+        const raf = requestAnimationFrame(() => {
+            setDetailReady(true);
+        });
+
+        return () => cancelAnimationFrame(raf);
     }, [
         onExpanded,
         overlayOpacity,
@@ -175,22 +184,30 @@ function ClassroomOpenTransitionOverlay({
         transition,
     ]);
 
+    // Reset detailReady when transition ends
+    React.useEffect(() => {
+        if (!transition) {
+            setDetailReady(false);
+        }
+    }, [transition]);
+
+    // Settling phase — fade the overlay out with a short crossfade so
+    // the real detail screen behind has time to be visually on-screen.
     React.useLayoutEffect(() => {
         if (!transition || transition.phase !== "settling") {
             return;
         }
 
-        overlayOpacity.value = withTiming(
-            0,
-            {
-                duration: 0,
-                easing: Easing.out(Easing.cubic),
-            },
-            (finished) => {
+        // We delay visually hiding the overlay for 40ms to prevent the white flash
+        // while the GPU catches up framing. BUT because phase is "settling" already,
+        // pointerEvents="none" is active, passing touches instantly to the real screen beneath!
+        overlayOpacity.value = withDelay(
+            40,
+            withTiming(0, { duration: 0 }, (finished) => {
                 if (finished) {
                     runOnJS(onSettled)();
                 }
-            },
+            })
         );
     }, [onSettled, overlayOpacity, transition]);
 
@@ -255,24 +272,26 @@ function ClassroomOpenTransitionOverlay({
                                 status={snapshot.room.status}
                             />
                         </Animated.View>
-                        <Animated.View
-                            style={[
-                                styles.transitionDetailLayer,
-                                detailStyle,
-                                { pointerEvents: "none" },
-                            ]}
-                        >
-                            <ClassroomDetailHero
-                                name={snapshot.room.name}
-                                building={snapshot.room.building}
-                                status={snapshot.room.status}
-                                backButtonMode="static"
-                            />
-                            <ClassroomCalendar
-                                building={snapshot.room.building}
-                                roomName={snapshot.room.name}
-                            />
-                        </Animated.View>
+                        {detailReady && (
+                            <Animated.View
+                                style={[
+                                    styles.transitionDetailLayer,
+                                    detailStyle,
+                                    { pointerEvents: "none" },
+                                ]}
+                            >
+                                <ClassroomDetailHero
+                                    name={snapshot.room.name}
+                                    building={snapshot.room.building}
+                                    status={snapshot.room.status}
+                                    backButtonMode="static"
+                                />
+                                <ClassroomCalendar
+                                    building={snapshot.room.building}
+                                    roomName={snapshot.room.name}
+                                />
+                            </Animated.View>
+                        )}
                     </Animated.View>
                 </Animated.View>
             </Animated.View>
@@ -308,6 +327,11 @@ export function ClassroomOpenTransitionProvider({
         null,
     );
 
+    // Mirror transition in a ref so callbacks can read current state
+    // without depending on it (keeps the context value stable).
+    const transitionRef = React.useRef<TransitionState | null>(null);
+    transitionRef.current = transition;
+
     const clearFallbackTimer = React.useCallback(() => {
         if (fallbackTimerRef.current) {
             clearTimeout(fallbackTimerRef.current);
@@ -322,12 +346,14 @@ export function ClassroomOpenTransitionProvider({
         return `classroom-open-${transitionCounterRef.current}`;
     }, []);
 
+    // Reads transitionRef (not transition state) so the callback stays stable
+    // and doesn't invalidate the context value on every transition change.
     const startOpenTransition = React.useCallback(
         (payload: TransitionPayload) => {
             clearFallbackTimer();
 
             const transitionId = createTransitionId();
-            if (transition) {
+            if (transitionRef.current) {
                 payload.navigate(transitionId);
                 return;
             }
@@ -349,7 +375,7 @@ export function ClassroomOpenTransitionProvider({
                 phase: "expanding",
             });
         },
-        [clearFallbackTimer, createTransitionId, transition],
+        [clearFallbackTimer, createTransitionId],
     );
 
     const handleExpanded = React.useCallback(() => {
@@ -360,10 +386,6 @@ export function ClassroomOpenTransitionProvider({
             return;
         }
 
-        // PRE-EMPTIVE: Set the fallback timer BEFORE navigation.
-        // If navigate() mounts the screen synchronously (common in some router versions),
-        // completeOpenTransition will fire and correctly clear this timer.
-        // If we set it after navigate(), it might stay running even if completeOpenTransition ran!
         clearFallbackTimer();
         fallbackTimerRef.current = setTimeout(() => {
             setTransition((current) => {
@@ -426,11 +448,9 @@ export function ClassroomOpenTransitionProvider({
         async (roomId: string, navigateBack: () => void) => {
             clearFallbackTimer();
 
-            // Clear any existing transition immediately (no closing animation)
             setTransition(null);
             pendingNavigationRef.current = null;
 
-            // Navigate back immediately without animation
             navigateBack();
         },
         [clearFallbackTimer],
@@ -442,9 +462,12 @@ export function ClassroomOpenTransitionProvider({
         setTransition(null);
     }, [clearFallbackTimer]);
 
+    // Stable callback — reads from transitionRef so the function reference
+    // never changes. The overlay covers the card during animation anyway,
+    // so cards not re-rendering to hide themselves is invisible to the user.
     const isSourceHidden = React.useCallback(
-        (sourceKey: string) => transition?.sourceKey === sourceKey,
-        [transition],
+        (sourceKey: string) => transitionRef.current?.sourceKey === sourceKey,
+        [],
     );
 
     const value = React.useMemo(

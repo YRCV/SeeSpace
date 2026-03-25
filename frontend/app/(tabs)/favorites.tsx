@@ -4,10 +4,12 @@ import { Stack, useRouter } from 'expo-router';
 
 import { ClassroomCard } from '@/components/ClassroomCard';
 import { ALL_ROOMS } from '@/constants/data';
+import { useFavorites } from '@/context/FavoritesContext';
 
 export default function FavoritesScreen() {
   const router = useRouter();
-  const favorites = ALL_ROOMS.filter(r => r.isFavorite);
+  const { favorites: favoriteIds } = useFavorites();
+  const favorites = ALL_ROOMS.filter(r => favoriteIds.includes(r.id));
 
   return (
     <View style={styles.root}>

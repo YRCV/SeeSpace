@@ -18,6 +18,8 @@ interface ClassroomDetailHeroProps {
     status: "free" | "occupied";
     backButtonMode?: "interactive" | "static" | "hidden";
     onBackPress?: () => void;
+    isFavorite?: boolean;
+    onToggleFavorite?: () => void;
     style?: StyleProp<ViewStyle>;
 }
 
@@ -27,6 +29,8 @@ export function ClassroomDetailHero({
     status,
     backButtonMode = "interactive",
     onBackPress,
+    isFavorite,
+    onToggleFavorite,
     style,
 }: ClassroomDetailHeroProps) {
     return (
@@ -53,6 +57,21 @@ export function ClassroomDetailHero({
                                 color="#000000"
                             />
                         </View>
+                    )}
+                    
+                    {onToggleFavorite && (
+                        <TouchableOpacity
+                            onPress={onToggleFavorite}
+                            activeOpacity={0.75}
+                            style={styles.favoriteButton}
+                        >
+                            <FontAwesome6
+                                name="star"
+                                solid={isFavorite}
+                                size={20}
+                                color={isFavorite ? "#FFD700" : "#A0A0A0"}
+                            />
+                        </TouchableOpacity>
                     )}
                 </View>
             )}
@@ -87,12 +106,24 @@ const styles = StyleSheet.create({
     backButtonRow: {
         position: "static",
         paddingHorizontal: 24,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
     },
     backButton: {
         width: 40,
         height: 40,
         justifyContent: "center",
         alignItems: "flex-start",
+    },
+    favoriteButton: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E0E0E0",
+        borderRadius: 20,
     },
     roomHeader: {
         paddingHorizontal: 24,

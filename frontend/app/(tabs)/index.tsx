@@ -5,6 +5,7 @@ import { Stack, useRouter } from 'expo-router';
 import { ClassroomCard } from '@/components/ClassroomCard';
 import { ALL_ROOMS } from '@/constants/data';
 import { useSearch } from '@/context/SearchContext';
+// import { useFavorites } from '@/context/FavoritesContext';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -16,13 +17,14 @@ export default function HomeScreen() {
   );
 
   const nearbyFree = filtered.filter(r => r.status === 'free');
-  const favorites = ALL_ROOMS.filter(r => r.isFavorite);
+  // const { favorites: favoriteIds } = useFavorites();
+  // const favorites = ALL_ROOMS.filter(r => favoriteIds.includes(r.id));
 
   return (
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
-        {favorites.length > 0 && (
+        {/* {favorites.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
               <View style={styles.accent} />
@@ -47,7 +49,7 @@ export default function HomeScreen() {
               />
             ))}
           </View>
-        )}
+        )} */}
 
         <View style={styles.section}>
           <View style={styles.sectionRow}>
