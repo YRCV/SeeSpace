@@ -3,7 +3,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from utils import unroll_course_schedule, normalize_course_time, parse_location
+from utils import normalize_course_time, parse_location
 
 load_dotenv()
 
@@ -118,7 +118,7 @@ def fetch_all_sections():
                     
                     sections = extract_course_sections(raw_course_name, cols)
                     all_classes.extend(sections)
-        time.sleep(1)
+        time.sleep(0.1)
 
     print(f"\n\033[92mScraping completed. Total classes: {len(all_classes)}\033[0m")
     return all_classes
