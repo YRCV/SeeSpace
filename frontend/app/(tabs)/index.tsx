@@ -1,24 +1,22 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView, Text } from 'react-native';
+import { StyleSheet, View, ScrollView, Text, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 
 import { ClassroomCard } from '@/components/ClassroomCard';
-import { ALL_ROOMS } from '@/constants/data';
 import { useSearch } from '@/context/SearchContext';
-// import { useFavorites } from '@/context/FavoritesContext';
+import { useAvailableRooms } from '@/hooks/useAvailableRooms';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { searchQuery } = useSearch();
+  const { rooms, loading } = useAvailableRooms();
 
   const q = searchQuery.toLowerCase();
-  const filtered = ALL_ROOMS.filter(
-    r => r.name.toLowerCase().includes(q) || r.building.toLowerCase().includes(q)
+  const filtered = rooms.filter(
+    (r: any) => r.name.toLowerCase().includes(q) || r.building.toLowerCase().includes(q)
   );
 
-  const nearbyFree = filtered.filter(r => r.status === 'free');
-  // const { favorites: favoriteIds } = useFavorites();
-  // const favorites = ALL_ROOMS.filter(r => favoriteIds.includes(r.id));
+  const nearbyFree = filtered.filter((r: any) => r.status === 'free');
 
   return (
     <View style={styles.root}>
@@ -56,8 +54,10 @@ export default function HomeScreen() {
             <View style={styles.accent} />
             <Text style={styles.sectionTitle}>{searchQuery ? 'Results' : 'Nearby Free Rooms'}</Text>
           </View>
-          {nearbyFree.length > 0 ? (
-            nearbyFree.map(r => (
+          {loading ? (
+            <ActivityIndicator size="large" color="#d64045" style={{ marginTop: 24 }} />
+          ) : nearbyFree.length > 0 ? (
+            nearbyFree.map((r: any) => (
               <ClassroomCard
                 key={r.id}
                 id={r.id}
