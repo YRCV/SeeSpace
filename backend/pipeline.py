@@ -1,49 +1,47 @@
 import os
-import json
+from dotenv import load_dotenv
+from supabase import create_client, Client
 from course_scraper import fetch_all_sections
 from event_scraper import fetch_all_events
-from utils import unroll_course_schedule, normalize_event_time
 
-os.makedirs("data", exist_ok=True)
+load_dotenv()
+url: str = os.environ.get("SUPABASE_URL", "")
+key: str = os.environ.get("SUPABASE_KEY", "")
+
+if not url or not key:
+    print("\033[41m\033[1mMissing SUPABASE_URL or SUPABASE_KEY in .env file\033[0m")
+    exit(1)
+
+supabase: Client = create_client(url, key)
 
 print("\033[44m\033[1mPipeline started\033[0m")
 
 # scrape courses
 print("\033[1m\033[93mFetching course data...\033[0m")
-raw_sections = fetch_all_sections()
+course_sections = fetch_all_sections()
+print(f"\033[1m\033[92mProcessed all courses: {len(course_sections)}\n\033[0m")
 
-course_occurrences = []
-for section in raw_sections:
-    course_occurrences.extend(unroll_course_schedule(
-        course_name=section["course_name"],
-        building=section["building"],
-        room=section["room"],
-        days=section["days"],
-        start_24h=section["start_time"],
-        end_24h=section["end_time"]
-    ))
-print(f"\033[1m\033[92mProcessed all courses: {len(course_occurrences)}\n\033[0m")
+# push courses to Supabase
+if course_sections:
+    print("\033[1m\033[93mUploading course data to Supabase...\033[0m")
+    try:
+        response = supabase.table("course_sections").upsert(course_sections).execute()
+        print(f"\033[1m\033[92mUploaded {len(response.data) if hasattr(response, 'data') else 'multiple'} courses successfully.\n\033[0m")
+    except Exception as e:
+        print(f"\033[1m\033[91mFailed to upload courses: {e}\n\033[0m")
 
 # scrape events
 print("\033[1m\033[93mFetching event data...\033[0m")
-raw_events = fetch_all_events()
+events = fetch_all_events()
+print(f"\033[1m\033[92mProcessed all events: {len(events)}\n\033[0m")
 
-event_occurences = []
-for event in raw_events:
-    event_occurences.append({
-        "title": event["name"],
-        "building": event["building"],
-        "room": event["room"],
-        "start_time": normalize_event_time(event["start_time"]),
-        "end_time": normalize_event_time(event["end_time"]),
-        "type": "event"
-    })
-print(f"\033[1m\033[92mProcessed all events: {len(event_occurences)}\n\033[0m")
-
-all_occurrences = course_occurrences + event_occurences
-print(f"\033[44m\033[1mTotal occurrences: {len(all_occurrences)}\033[0m")
-print("\033[1m\033[93m\nSaving data...\033[0m")
-with open("data/all_occurrences.json", "w") as f:
-    json.dump(all_occurrences, f, indent=2)
+# push events to Supabase
+if events:
+    print("\033[1m\033[93mUploading event data to Supabase...\033[0m")
+    try:
+        response = supabase.table("events").upsert(events).execute()
+        print(f"\033[1m\033[92mUploaded {len(response.data) if hasattr(response, 'data') else 'multiple'} events successfully.\n\033[0m")
+    except Exception as e:
+        print(f"\033[1m\033[91mFailed to upload events: {e}\n\033[0m")
 
 print("\033[42m\033[1mPipeline completed\033[0m")

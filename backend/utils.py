@@ -56,16 +56,18 @@ def normalize_course_time(raw_time_string):
     except ValueError:
         return None, None
 
-def normalize_event_time(raw_time_string):
+def normalize_event_datetime(raw_time_string):
     if not raw_time_string:
-        return None
+        return None, None
     
     dt = datetime.fromisoformat(raw_time_string)
 
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=NJ_TIMEZONE)  # stamp as ET, not convert
 
-    return dt.isoformat()
+    event_date = dt.strftime("%Y-%m-%d")
+    event_time = dt.strftime("%H:%M:%S")
+    return event_date, event_time
 
 def clean_room_string(room_str):
     room_str = html.unescape(room_str)
@@ -105,54 +107,6 @@ def parse_location(raw_location):
         return parts[0], split_rooms(clean_room_string(parts[1]))
          
     return "OTHER", [clean_loc]
-    
-def unroll_course_schedule(course_name, building, room, days, start_24h, end_24h):
-    # generate an array of event dictionaries with ISO time format for every class meeting of the semester
-    
-    # map days
-    target_days = [RRULE_MAP[day] for day in days.upper() if day in RRULE_MAP]
-
-    if not target_days or not start_24h or not end_24h:
-        return []
-
-    # parse time
-    start_h, start_m, start_s = map(int, start_24h.split(":"))
-    end_h, end_m, end_s = map(int, end_24h.split(":"))
-
-    # setup naive datetime
-    dt_start_naive = SEMESTER_START.replace(hour=start_h, minute=start_m, second=start_s, tzinfo=NJ_TIMEZONE)
-    dt_end_naive = SEMESTER_END.replace(hour=end_h, minute=end_m, second=end_s, tzinfo=NJ_TIMEZONE)
-
-    # generate all occurences in the range of the semester
-    occurences = list(rrule.rrule(
-        rrule.WEEKLY,
-        byweekday=target_days,
-        dtstart=dt_start_naive,
-        until=dt_end_naive,
-    ))
-
-    unrolled_classes = []
-    for dt_naive in occurences:
-        start_aware = dt_naive.astimezone(NJ_TIMEZONE)
-        end_aware = dt_naive.astimezone(NJ_TIMEZONE).replace(hour=end_h, minute=end_m, second=end_s)
-        
-        unrolled_classes.append({
-            "title": course_name,
-            "building": building,
-            "room": room,
-            "start_time": start_aware.isoformat(),
-            "end_time": end_aware.isoformat(),
-            "type": "course"
-        })
-
-    return unrolled_classes
 
 if __name__ == "__main__":
-    #print(normalize_course_time("10:00 AM - 12:30 PM"))
-    example_courses = [
-        {'course_name': 'ECE 271 - ELECTRONIC CIRCUITS I', 'days': 'TR', 'start_time': '13:00:00', 'end_time': '14:20:00', 'building': 'KUPF', 'room': '118'},
-        {'course_name': 'ECE 271 - ELECTRONIC CIRCUITS I', 'days': 'F', 'start_time': '08:30:00', 'end_time': '09:30:00', 'building': 'GITC', 'room': '1100'}
-    ]
-    for course in example_courses:
-        print(unroll_course_schedule(course["course_name"], course["building"], course["room"], course["days"], course["start_time"], course["end_time"]))
-    
+    pass

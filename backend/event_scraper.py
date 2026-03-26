@@ -1,7 +1,7 @@
 import os
 import requests
 from dotenv import load_dotenv
-from utils import parse_location
+from utils import parse_location, normalize_event_datetime
 
 load_dotenv()
 
@@ -23,18 +23,20 @@ def fetch_events_data():
 def parse_event(event):
     name = event.get("title", "Unknown")
     location = event.get("location", "TBA")
-    start_time = event.get("startDateTime")
-    end_time = event.get("endDateTime")
+    
+    event_date, start_time_norm = normalize_event_datetime(event.get("startDateTime"))
+    _, end_time_norm = normalize_event_datetime(event.get("endDateTime"))
     
     building, rooms = parse_location(location)
     
     return [
         {
-            "name": name,
+            "event_name": name,
+            "event_date": event_date,
+            "start_time": start_time_norm,
+            "end_time": end_time_norm,
             "building": building,
             "room": room,
-            "start_time": start_time,
-            "end_time": end_time,
         }
         for room in rooms
     ]
